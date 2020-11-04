@@ -10,14 +10,7 @@ in {
   # The branch was `chore/update-sbt-add-nix`, for future reference.
   mantis-source = builtins.fetchGit {
     url = "https://github.com/input-output-hk/mantis";
-    rev = "76ceac0c56f9037416164430155a5387e42b5cf3";
-    ref = "develop";
-    submodules = true;
-  };
-
-  mantis-faucet-source = builtins.fetchGit {
-    url = "https://github.com/input-output-hk/mantis";
-    rev = "76ceac0c56f9037416164430155a5387e42b5cf3";
+    rev = "5d754f6e666cb4a40c7e0db0a98cc1ec4deed712";
     ref = "develop";
     submodules = true;
   };
@@ -27,21 +20,11 @@ in {
 
   mantis = import final.mantis-source { inherit system; };
 
-  mantis-faucet = import final.mantis-faucet-source { inherit system; };
-
-  mantis-explorer-server = prev.callPackage ./pkgs/mantis-explorer-server.nix {
-    inherit (self.inputs.inclusive.lib) inclusive;
-  };
-
-  # Any:
-  # - run of this command with a parameter different than the testnet (currently 10)
-  # - change in the genesis file here
-  # Requires an update on the mantis repository and viceversa
   generate-mantis-keys = let
     mantisConfigJson = {
       mantis = {
         consensus.mining-enabled = false;
-        blockchains.network = "testnet-internal-nomad";
+        blockchains.network = "testnet-internal";
 
         network.rpc = {
           http = {
@@ -58,7 +41,7 @@ in {
     mantisConfigHocon =
       prev.runCommand "mantis.conf" { buildInputs = [ prev.jq ]; } ''
         cat <<EOF > $out
-        include "${final.mantis}/conf/testnet-internal-nomad.conf"
+        include "${final.mantis}/conf/testnet-internal.conf"
         EOF
 
         jq . < ${
@@ -127,10 +110,10 @@ in {
     for count in $(seq "$desired"); do
       keyFile="secrets/mantis-$count.key"
       coinbaseFile="secrets/mantis-$count.coinbase"
-      secretKeyPath="kv/nomad-cluster/$prefix/mantis-$count/secret-key"
-      hashKeyPath="kv/nomad-cluster/$prefix/mantis-$count/enode-hash"
-      coinbasePath="kv/nomad-cluster/$prefix/mantis-$count/coinbase"
-      accountPath="kv/nomad-cluster/$prefix/mantis-$count/account"
+      secretKeyPath="kv/nomad-cluster/$prefix/testnet-mantis-$count/secret-key"
+      hashKeyPath="kv/nomad-cluster/$prefix/testnet-mantis-$count/enode-hash"
+      coinbasePath="kv/nomad-cluster/$prefix/testnet-mantis-$count/coinbase"
+      accountPath="kv/nomad-cluster/$prefix/testnet-mantis-$count/account"
       genesisPath="kv/nomad-cluster/$prefix/genesis"
 
       hashKey="$(vault kv get -field value "$hashKeyPath" || true)"
@@ -142,7 +125,7 @@ in {
           len=0
           until [ $len -eq 194 ]; do
             echo "generating key..."
-            len="$( eckeygen -Dconfig.file=${final.mantis}/conf/app.conf | tee "$keyFile" | wc -c )"
+            len="$( eckeygen -Dconfig.file=${final.mantis}/conf/mantis.conf | tee "$keyFile" | wc -c )"
           done
         fi
 
@@ -157,7 +140,7 @@ in {
         coinbase="$(generateCoinbase "$secretKey")"
         vault kv put "$coinbasePath" "value=$coinbase"
 
-        cat $tmpdir/.mantis/testnet-internal-nomad/keystore/*$coinbase | vault kv put "$accountPath" -
+        cat $tmpdir/.mantis/testnet-internal/keystore/*$coinbase | vault kv put "$accountPath" -
       else
         echo "Downloading key for $keyFile from Vault"
         secretKey="$(vault kv get -field value "$secretKeyPath")"
@@ -175,10 +158,10 @@ in {
           extraData = "0x00";
           nonce = "0x0000000000000042";
           gasLimit = "0x2fefd8";
-          difficulty = "0xF4240";
+          difficulty = "0x400";
           ommersHash =
             "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
-          timestamp = "0x5FA34080";
+          timestamp = "0x00";
           coinbase = "0x0000000000000000000000000000000000000000";
           mixHash =
             "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -199,53 +182,49 @@ in {
     echo "$genesis" | vault kv put $genesisPath -
   '';
 
-  generate-mantis-qa-genesis =
-    final.writeShellScriptBin "generate-mantis-qa-genesis" ''
-      set -xeuo pipefail
+  generate-mantis-qa-genesis = final.writeShellScriptBin "generate-mantis-qa-genesis" ''
+    set -xeuo pipefail
 
-      prefix="$1"
+    prefix="$1"
 
-      read genesis <<EOF
-        ${
-          builtins.toJSON {
-            extraData = "0x00";
-            nonce = "0x0000000000000042";
-            gasLimit = "0xffffffffff";
-            difficulty = "0x400";
-            ommersHash =
-              "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
-            timestamp = "0x00";
-            coinbase = "0x0000000000000000000000000000000000000000";
-            mixHash =
-              "0x0000000000000000000000000000000000000000000000000000000000000000";
-            alloc = {
-              "5a3b6d6e72db079655c6327c722cd40a60c888b4" = {
-                _comments =
-                  "PrivateKey in use: 00804c5be5b608c6a03ae5db56ac29c97192ac8b87720e7009dbc735460c7d8122; Coinbase";
-                balance = "0";
-              };
-              "7fbcf9190993aa5232def0238e129ce7b7e42da7" = {
-                _comments =
-                  "PrivateKey in use: 00feedec7150e9562b037727cfb33a51c753357dec7f36d659b0a531a4a5aa4000";
-                balance =
-                  "1606938044258990275541962092341162602522202993782792835301376";
-              };
-              "316158e265fa708c623cc3094b2bb5889e0f5ca5" = {
-                balance = "100000000000000000000";
-              };
-              "b9ec69316a8810db91c36de79c4f1e785f2c35fc" = {
-                balance = "100000000000000000000";
-              };
-              "488c10c91771d3b3c25f63b6414309b119baacb5" = {
-                balance = "100000000000000000000";
-              };
+    read genesis <<EOF
+      ${
+        builtins.toJSON {
+          extraData = "0x00";
+          nonce = "0x0000000000000042";
+          gasLimit = "0xffffffffff";
+          difficulty = "0x400";
+          ommersHash =
+            "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+          timestamp = "0x00";
+          coinbase = "0x0000000000000000000000000000000000000000";
+          mixHash =
+            "0x0000000000000000000000000000000000000000000000000000000000000000";
+          alloc = {
+            "5a3b6d6e72db079655c6327c722cd40a60c888b4" = {
+              _comments = "PrivateKey in use: 00804c5be5b608c6a03ae5db56ac29c97192ac8b87720e7009dbc735460c7d8122; Coinbase";
+              balance = "0";
             };
-          }
+            "7fbcf9190993aa5232def0238e129ce7b7e42da7" = {
+              _comments = "PrivateKey in use: 00feedec7150e9562b037727cfb33a51c753357dec7f36d659b0a531a4a5aa4000";
+              balance = "1606938044258990275541962092341162602522202993782792835301376";
+            };
+            "316158e265fa708c623cc3094b2bb5889e0f5ca5" = {
+              balance = "100000000000000000000";
+            };
+            "b9ec69316a8810db91c36de79c4f1e785f2c35fc" = {
+              balance = "100000000000000000000";
+            };
+            "488c10c91771d3b3c25f63b6414309b119baacb5" = {
+              balance = "100000000000000000000";
+            };
+          };
         }
-      EOF
+      }
+    EOF
 
-      echo "$genesis" | vault kv put kv/nomad-cluster/$prefix/qa-genesis -
-    '';
+    echo "$genesis" | vault kv put kv/nomad-cluster/$prefix/qa-genesis -
+  '';
 
   devShell = let
     cluster = "mantis-testnet";
@@ -275,43 +254,19 @@ in {
       final.nomad
       final.consul
       final.consul-template
+      final.python38Packages.pyhcl
       final.direnv
       final.nixFlakes
       final.jq
-      final.fd
-      # final.crystal
-      # final.pkgconfig
-      # final.openssl
     ];
   };
 
   # Used for caching
   devShellPath = prev.symlinkJoin {
-    paths = final.devShell.buildInputs ++ [
-      final.mantis
-      final.mantis-faucet
-      final.nixFlakes
-      final.midnight-automation
-    ];
+    paths = final.devShell.buildInputs
+      ++ [ final.mantis final.nixFlakes final.midnight-automation ];
     name = "devShell";
   };
-
-  debugUtils = with final; [
-    bashInteractive
-    coreutils
-    curl
-    dnsutils
-    fd
-    gawk
-    gnugrep
-    iproute
-    jq
-    lsof
-    netcat
-    nettools
-    procps
-    tree
-  ];
 
   mantis-explorer = final.callPackage ./pkgs/mantis-explorer.nix {
     src = self.inputs.mantis-explorer;
