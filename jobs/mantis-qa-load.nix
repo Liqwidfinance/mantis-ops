@@ -227,15 +227,7 @@ let
 
       serviceName = "${namespace}-mantis-miner";
 
-      tags = [ "ingress" namespace name ];
-
-      meta = {
-        ingressHost = "${name}.mantis.ws";
-        ingressPort = toString publicPort;
-        ingressBind = "*:${toString publicPort}";
-        ingressMode = "tcp";
-        ingressServer = "_${namespace}-mantis-miner._${name}.service.consul";
-      };
+      tags = [ namespace name ];
     });
 
   mkPassive = count:
