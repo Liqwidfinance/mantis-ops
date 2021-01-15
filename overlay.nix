@@ -315,6 +315,8 @@ in {
     BITTE_CLUSTER = cluster;
     AWS_PROFILE = "mantis";
     AWS_DEFAULT_REGION = final.clusters.${cluster}.proto.config.cluster.region;
+    SSL_CERT_FILE = "${final.cacert}/etc/ssl/certs/ca-bundle.crt";
+    NIX_SSL_CERT_FILE = "${final.cacert}/etc/ssl/certs/ca-bundle.crt";
 
     VAULT_ADDR = "https://vault.${domain}";
     NOMAD_ADDR = "https://nomad.${domain}";
