@@ -184,16 +184,16 @@
         "utils": "utils_4"
       },
       "locked": {
-        "lastModified": 1611174765,
-        "narHash": "sha256-KhWQdGApb9neoHA/+KEdJWwHP7FdB15z5kVrlVjhVK0=",
+        "lastModified": 1611426490,
+        "narHash": "sha256-bzZYqWtAeGlCv9vV1zxsr0YIACF01xuCFbMOBqVFEC8=",
         "owner": "input-output-hk",
         "repo": "ECIP-Checkpointing",
-        "rev": "a44a161ff214a9add298980c746b14a8677098b9",
+        "rev": "faa575c0058fa56f11c12c55ce11901934f2bc11",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
-        "ref": "master",
+        "ref": "srv-topology",
         "repo": "ECIP-Checkpointing",
         "type": "github"
       }
